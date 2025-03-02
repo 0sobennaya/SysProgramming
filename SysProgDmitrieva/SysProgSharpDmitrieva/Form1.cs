@@ -19,15 +19,22 @@ namespace SysProgSharpDmitrieva
             if (childProcess == null || childProcess.HasExited)
             {
                 childProcess = Process.Start("SysProgDmitrieva.exe");
+                childProcess.EnableRaisingEvents = true;
+                confirmEvent.WaitOne();
+                listBox.Items.Add($"test");
+                listBox.SelectedIndex = 0;
             }
             else
             {
                 int value = (int)Counter.Value;
+                int j = listBox.Items.Count;
                 for (int i = 0; i < value; i++)
                 {
                     startEvent.Set();
                     confirmEvent.WaitOne();
+                    listBox.Items.Add($"thread {j + i - 1}");
                 }
+                listBox.SelectedIndex = listBox.Items.Count - 1;
             }
 
         }
