@@ -102,6 +102,7 @@
             Controls.Add(StartButton);
             Name = "Form1";
             Text = "Dmitrieva";
+            FormClosed += Form1_FormClosed;
             ((System.ComponentModel.ISupportInitialize)Counter).EndInit();
             ResumeLayout(false);
             PerformLayout();

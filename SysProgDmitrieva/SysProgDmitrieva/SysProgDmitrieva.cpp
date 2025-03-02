@@ -38,10 +38,12 @@ void start()
 	HANDLE hStartEvent = CreateEvent(NULL, FALSE, FALSE, L"StartEvent");
 	HANDLE hStopEvent = CreateEvent(NULL, FALSE, FALSE, L"StopEvent");
 	HANDLE hConfirmEvent = CreateEvent(NULL, FALSE, FALSE, L"ConfirmEvent");
-	HANDLE hControlEvents[2] = { hStartEvent, hStopEvent };
+	HANDLE hCloseEvent = CreateEvent(NULL, FALSE, FALSE, L"CloseEvent");
+	HANDLE hControlEvents[3] = { hStartEvent, hStopEvent , hCloseEvent};
 	int i = 0;
 	SetEvent(hConfirmEvent);
-	do
+
+	while (i >=0)
 	{
 		int n = WaitForMultipleObjects(2, hControlEvents, FALSE, INFINITE) - WAIT_OBJECT_0;
 		switch (n)
@@ -49,7 +51,6 @@ void start()
 		case 0:
 			sessions.push_back(new Session(i++));
 			CloseHandle(CreateThread(NULL, 0, MyThread, (LPVOID)sessions.back(), 0, NULL));
-			
 			SetEvent(hConfirmEvent);
 			break;
 		case 1:
@@ -58,9 +59,12 @@ void start()
 			--i;
 			SetEvent(hConfirmEvent);
 			break;
+		case 2:
+			SetEvent(hConfirmEvent);
+			return;
 		}
-	} while (i);
-	//_getch();
+	} 
+	
 	SetEvent(hConfirmEvent);
 	DeleteCriticalSection(&cs);
 }
