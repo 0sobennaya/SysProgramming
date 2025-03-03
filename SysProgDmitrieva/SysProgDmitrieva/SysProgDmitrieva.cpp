@@ -45,7 +45,7 @@ void start()
 
 	while (i >=0)
 	{
-		int n = WaitForMultipleObjects(2, hControlEvents, FALSE, INFINITE) - WAIT_OBJECT_0;
+		int n = WaitForMultipleObjects(3, hControlEvents, FALSE, INFINITE) - WAIT_OBJECT_0;
 		switch (n)
 		{
 		case 0:
@@ -54,11 +54,19 @@ void start()
 			SetEvent(hConfirmEvent);
 			break;
 		case 1:
-			sessions.back()->addMessage(MT_CLOSE);
-			sessions.pop_back();
-			--i;
-			SetEvent(hConfirmEvent);
-			break;
+			if (!sessions.empty())
+			{
+				sessions.back()->addMessage(MT_CLOSE);
+				sessions.pop_back();
+				--i;
+				SetEvent(hConfirmEvent);
+				break;
+			}
+			else
+			{
+				SetEvent(hConfirmEvent);
+				return;
+			}
 		case 2:
 			SetEvent(hConfirmEvent);
 			return;
