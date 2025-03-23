@@ -61,7 +61,7 @@ void start()
 	std::wcin.imbue(std::locale("rus_rus.866"));
 	std::wcout.imbue(std::locale("rus_rus.866"));
 
-	InitializeCriticalSection(&cs);
+	
 	vector<Session*> sessions;
 
 	HANDLE hStartEvent = CreateEvent(NULL, FALSE, FALSE, L"StartEvent");
@@ -81,7 +81,7 @@ void start()
 		case 0:
 		{
 			sessions.push_back(new Session(i++));
-			thread t(MyThread, sessions.back());
+			std::thread t(MyThread, sessions.back());
 			t.detach();
 			SetEvent(hConfirmEvent);
 			break;
@@ -139,7 +139,7 @@ void start()
 	} 
 	
 	SetEvent(hConfirmEvent);
-	DeleteCriticalSection(&cs);
+	
 }
 
 
