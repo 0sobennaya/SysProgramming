@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 
 namespace SysProgSharpDmitrieva
 {
@@ -9,12 +10,13 @@ namespace SysProgSharpDmitrieva
         System.Threading.EventWaitHandle startEvent = new EventWaitHandle(false, EventResetMode.AutoReset, "StartEvent");
         System.Threading.EventWaitHandle confirmEvent = new EventWaitHandle(false, EventResetMode.AutoReset, "ConfirmEvent");
         System.Threading.EventWaitHandle closeEvent = new EventWaitHandle(false, EventResetMode.AutoReset, "CloseEvent");
-
+        System.Threading.EventWaitHandle sendEvent = new EventWaitHandle(false, EventResetMode.AutoReset, "SendEvent");
         public Form1()
         {
             InitializeComponent();
         }
-
+        [DllImport("DmitrievaDll.dll", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+        private static extern void mapsend(int adr, string str);
         private void OnProcessExited(object sender, EventArgs e)
         {
             if (listBox.InvokeRequired)
@@ -73,6 +75,16 @@ namespace SysProgSharpDmitrieva
                 closeEvent.Set();
                 confirmEvent.WaitOne();
                 childProcess = null;
+            }
+        }
+
+        private void SendButton_Click(object sender, EventArgs e)
+        {
+            if (!(childProcess == null || childProcess.HasExited))
+            {
+                mapsend(listBox.SelectedIndex, textBox.Text);
+                sendEvent.Set();
+                confirmEvent.WaitOne();
             }
         }
     }
