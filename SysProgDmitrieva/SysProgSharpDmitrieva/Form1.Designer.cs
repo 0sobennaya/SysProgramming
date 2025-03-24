@@ -65,6 +65,7 @@
             SendButton.TabIndex = 2;
             SendButton.Text = "Send";
             SendButton.UseVisualStyleBackColor = true;
+            SendButton.Click += SendButton_Click;
             // 
             // Counter
             // 
