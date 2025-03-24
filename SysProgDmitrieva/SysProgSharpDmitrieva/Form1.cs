@@ -1,5 +1,5 @@
 using System.Diagnostics;
-
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
 
@@ -13,6 +13,7 @@ namespace SysProgSharpDmitrieva
         EventWaitHandle StopEvent = new EventWaitHandle(false, EventResetMode.AutoReset, "StopEvent");
         EventWaitHandle ConfirmEvent = new EventWaitHandle(false, EventResetMode.AutoReset, "ConfirmEvent");
         EventWaitHandle CloseEvent = new EventWaitHandle(false, EventResetMode.AutoReset, "CloseEvent");
+        EventWaitHandle SendEvent = new EventWaitHandle(false, EventResetMode.AutoReset, "SendEvent");
 
         public Form1()
         {
@@ -40,8 +41,8 @@ namespace SysProgSharpDmitrieva
                 ChildProcess = Process.Start("SysProgDmitrieva.exe");
                 ChildProcess.EnableRaisingEvents = true;
                 ChildProcess.Exited += OnProcessExited;
-                listBox.Items.Add("Âñå ïîòîêè");
-                listBox.Items.Add("Ãëàâíûé ïîòîê");
+                listBox.Items.Add("Все потоки");
+                listBox.Items.Add("Главный поток");
             }
             else
             {
@@ -78,11 +79,11 @@ namespace SysProgSharpDmitrieva
 
         private void SendButton_Click(object sender, EventArgs e)
         {
-            if (!(childProcess == null || childProcess.HasExited))
+            if (!(ChildProcess == null || ChildProcess.HasExited))
             {
                 mapsend(listBox.SelectedIndex, textBox.Text);
-                sendEvent.Set();
-                confirmEvent.WaitOne();
+                SendEvent.Set();
+                ConfirmEvent.WaitOne();
             }
         }
     }

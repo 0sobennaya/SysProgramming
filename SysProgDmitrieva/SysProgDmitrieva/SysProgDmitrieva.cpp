@@ -44,7 +44,12 @@ void MyThread(Session* session)
 				delete session;
 				return;
 			}
-
+			case MT_DATA:
+			{
+				
+				WriteFile(session->sessionID, m.data);
+				
+			}
 			}
 		}
 	}
@@ -138,7 +143,7 @@ void start()
 
 int main()
 {
-	std::vector<Session*> sessions;
+	/*std::vector<Session*> sessions;
 	int i = 0;
 
 	HANDLE hStartEvent = CreateEvent(NULL, FALSE, FALSE, L"StartEvent");
@@ -154,7 +159,8 @@ int main()
 		case 0:
 		{
 			sessions.push_back(new Session(i++));
-			CloseHandle(CreateThread(NULL, 0, MyThread, (LPVOID)sessions.back(), 0, NULL));
+			std::thread t(MyThread, sessions.back());
+			t.detach();
 			SetEvent(hConfirmEvent);
 			break;
 		}
@@ -180,10 +186,10 @@ int main()
 		}
 	}
 	SetEvent(hConfirmEvent);
+*/
 
-
-	/*return 0;
-    start();*/
+	/*return 0;*/
+    start();
 	return 0;
 }
 
