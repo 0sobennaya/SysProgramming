@@ -5,9 +5,10 @@
 #include <thread>
 #include <fstream>
 
+
 struct header
 {
-	int adr;
+	int addr;
 	int size;
 };
 
@@ -75,6 +76,7 @@ void start()
 
 	while (i >=0)
 	{
+
 		int n = WaitForMultipleObjects(4, hControlEvents, FALSE, INFINITE) - WAIT_OBJECT_0;
 		switch (n)
 		{
@@ -87,6 +89,7 @@ void start()
 			break;
 		}
 		case 1:
+
 		{
 			if (!sessions.empty())
 			{
@@ -103,6 +106,7 @@ void start()
 				return;
 			}
 		}
+
 		case 2:
 		{
 			sessions.clear();
@@ -115,7 +119,7 @@ void start()
 			header h;
 			std::wstring message = mapreceive(h);
 
-			switch (h.adr)
+			switch (h.addr)
 			{
 			case 0: {
 				for (auto& session : sessions) {
@@ -128,7 +132,7 @@ void start()
 				break;
 			}
 			default: {
-				sessions[h.adr - 2]->addMessage(MT_DATA, message);
+				sessions[h.addr - 2]->addMessage(MT_DATA, message);
 				break;
 			}
 

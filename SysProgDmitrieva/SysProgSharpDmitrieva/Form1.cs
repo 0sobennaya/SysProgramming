@@ -15,8 +15,8 @@ namespace SysProgSharpDmitrieva
         {
             InitializeComponent();
         }
-        [DllImport("DmitrievaDll.dll", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
-        private static extern void mapsend(int adr, string str);
+        [DllImport("DllDmitrieva.dll", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+        private static extern void mapsend(int addr, string str);
         private void OnProcessExited(object sender, EventArgs e)
         {
             if (listBox.InvokeRequired)
