@@ -1,16 +1,19 @@
 using System.Diagnostics;
-using System.Runtime.InteropServices;
+
+using System.Windows.Forms;
+
 
 namespace SysProgSharpDmitrieva
 {
     public partial class Form1 : Form
     {
-        Process? childProcess = null;
-        System.Threading.EventWaitHandle stopEvent = new EventWaitHandle(false, EventResetMode.AutoReset, "StopEvent");
-        System.Threading.EventWaitHandle startEvent = new EventWaitHandle(false, EventResetMode.AutoReset, "StartEvent");
-        System.Threading.EventWaitHandle confirmEvent = new EventWaitHandle(false, EventResetMode.AutoReset, "ConfirmEvent");
-        System.Threading.EventWaitHandle closeEvent = new EventWaitHandle(false, EventResetMode.AutoReset, "CloseEvent");
-        System.Threading.EventWaitHandle sendEvent = new EventWaitHandle(false, EventResetMode.AutoReset, "SendEvent");
+
+        Process? ChildProcess = null;
+        EventWaitHandle StartEvent = new EventWaitHandle(false, EventResetMode.AutoReset, "StartEvent");
+        EventWaitHandle StopEvent = new EventWaitHandle(false, EventResetMode.AutoReset, "StopEvent");
+        EventWaitHandle ConfirmEvent = new EventWaitHandle(false, EventResetMode.AutoReset, "ConfirmEvent");
+        EventWaitHandle CloseEvent = new EventWaitHandle(false, EventResetMode.AutoReset, "CloseEvent");
+
         public Form1()
         {
             InitializeComponent();
@@ -27,54 +30,49 @@ namespace SysProgSharpDmitrieva
             {
                 listBox.Items.Clear();
             }
+
         }
 
         private void StartButton_Click(object sender, EventArgs e)
         {
-            if (childProcess == null || childProcess.HasExited)
+            if (ChildProcess == null || ChildProcess.HasExited)
             {
-                childProcess = Process.Start("SysProgDmitrieva.exe");
-                childProcess.EnableRaisingEvents = true;
-                childProcess.Exited += OnProcessExited;
-                confirmEvent.WaitOne();
-                listBox.Items.Add($"Все потоки");
-                listBox.Items.Add($"Главный поток");
-                listBox.SelectedIndex = 0;
+                ChildProcess = Process.Start("SysProgDmitrieva.exe");
+                ChildProcess.EnableRaisingEvents = true;
+                ChildProcess.Exited += OnProcessExited;
+                listBox.Items.Add("Г‚Г±ГҐ ГЇГ®ГІГ®ГЄГЁ");
+                listBox.Items.Add("ГѓГ«Г ГўГ­Г»Г© ГЇГ®ГІГ®ГЄ");
             }
             else
             {
-                int value = (int)Counter.Value;
-                int j = listBox.Items.Count;
-                for (int i = 0; i < value; i++)
+                int n = (int)Counter.Value;
+                int CountItems = listBox.Items.Count;
+                for (int i = 0; i < n; ++i)
                 {
-                    startEvent.Set();
-                    confirmEvent.WaitOne();
-                    listBox.Items.Add($"thread {j + i - 2}");
+                    StartEvent.Set();
+                    ConfirmEvent.WaitOne();
+                    listBox.Items.Add($"Thread {i + CountItems - 2}");
                 }
-                listBox.SelectedIndex = listBox.Items.Count - 1;
-            }
 
+            }
         }
 
         private void StopButton_Click(object sender, EventArgs e)
         {
-            if (!(childProcess == null || childProcess.HasExited))
+            if (!(ChildProcess == null || ChildProcess.HasExited))
             {
-                stopEvent.Set();
-                confirmEvent.WaitOne();
+                StopEvent.Set();
+                ConfirmEvent.WaitOne();
                 listBox.Items.RemoveAt(listBox.Items.Count - 1);
-                listBox.SelectedIndex = listBox.Items.Count - 1;
             }
-
         }
 
         private void Form1_FormClosed(object sender, FormClosedEventArgs e)
         {
-            if (!(childProcess == null || childProcess.HasExited))
+            if (!(ChildProcess == null || ChildProcess.HasExited))
             {
-                closeEvent.Set();
-                confirmEvent.WaitOne();
-                childProcess = null;
+                CloseEvent.Set();
+                ConfirmEvent.WaitOne();
             }
         }
 
