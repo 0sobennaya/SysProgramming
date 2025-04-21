@@ -1,6 +1,6 @@
 ﻿// dllmain.cpp : Определяет точку входа для приложения DLL.
 #include "pch.h"
-#include <string>
+#include "asio.h"
 
 BOOL APIENTRY DllMain(HMODULE hModule,
 	DWORD  ul_reason_for_call,
@@ -18,60 +18,69 @@ BOOL APIENTRY DllMain(HMODULE hModule,
 	return TRUE;
 }
 
-struct header
-{
-	int addr;
+struct header {
+	int type;
+	int num;
+	int adr;
 	int size;
 };
 
-HANDLE mutex = CreateMutex(NULL, false, L"Mutex");
+enum MessageType {
+	INIT,
+	EXIT,
+	START,
+	SEND,
+	STOP,
+	CONFIRM
+};
 
+boost::asio::io_context io;
+tcp::socket* MySocket = nullptr;
 
 extern "C" {
+	__declspec(dllexport) void SendServer(tcp::socket& s, int type, int num = 0, int adr = 0, const wchar_t* str = nullptr) {
 
-	__declspec(dllexport) std::wstring mapreceive(header& h)
-	{
-		WaitForSingleObject(mutex, INFINITE);
-		HANDLE hFile = CreateFile(L"filemap.dat", GENERIC_READ | GENERIC_WRITE, FILE_SHARE_WRITE | FILE_SHARE_READ, NULL, OPEN_ALWAYS, 0, 0);
+		header h;
+		if (str != nullptr)
+			h = { type, num, adr, (int)(wcslen(str) * sizeof(wchar_t)) };
+		else
+			h = { type, num, adr, 0 };
 
-		HANDLE hFileMap = CreateFileMapping(hFile, NULL, PAGE_READWRITE, 0, sizeof(header), L"MyMap");
+		sendData(s, &h);
+		if (h.size)
+			sendData(s, str, h.size);
 
-		LPVOID buff = MapViewOfFile(hFileMap, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(header));
 
-		h = *((header*)buff);
-		UnmapViewOfFile(buff);
-		CloseHandle(hFileMap);
-
-		int n = h.size + sizeof(header);
-		hFileMap = CreateFileMapping(hFile, NULL, PAGE_READWRITE, 0, n, L"MyMap");
-		buff = MapViewOfFile(hFileMap, FILE_MAP_ALL_ACCESS, 0, 0, n);
-
-		std::wstring s((wchar_t*)((BYTE*)buff + sizeof(header)), h.size / 2);
-
-		UnmapViewOfFile(buff);
-		CloseHandle(hFileMap);
-
-		CloseHandle(hFile);
-		ReleaseMutex(mutex);
-		return s;
 	}
+	__declspec(dllexport) std::wstring ReceiveServer(tcp::socket& s, header& h) {
+		receiveData(s, &h);
+		std::wstring str;
+		if (h.size)
+		{
+			str.resize(h.size / sizeof(wchar_t));
+			receiveData(s, str.data(), h.size);
+		}
+		return str;
+	}
+	__declspec(dllexport) header SendClient(tcp::socket& s, int type, int num = 0, int adr = 0, const wchar_t* str = nullptr) {
+		if ((MessageType)type == INIT)
+		{
+			MySocket = new tcp::socket(io);
+			tcp::resolver r(io);
+			boost::asio::connect(*MySocket, r.resolve("127.0.0.1", "12346"));
+	
+		}
 
-	__declspec(dllexport) void mapsend(int addr, const wchar_t* str)
-	{
-		WaitForSingleObject(mutex, INFINITE);
-		header h = { addr, int(wcslen(str) * 2) };
-		HANDLE hFile = CreateFile(L"filemap.dat", GENERIC_READ | GENERIC_WRITE, FILE_SHARE_WRITE | FILE_SHARE_READ, NULL, OPEN_ALWAYS, 0, 0);
+		SendServer(*MySocket, type, num, adr, str);
 
-		HANDLE hFileMap = CreateFileMapping(hFile, NULL, PAGE_READWRITE, 0, h.size + sizeof(header), L"MyMap");
-		BYTE* buff = (BYTE*)MapViewOfFile(hFileMap, FILE_MAP_ALL_ACCESS, 0, 0, h.size + sizeof(header));
+		header hConfirm = { 0 };
+		receiveData(*MySocket, &hConfirm);
 
-		memcpy(buff, &h, sizeof(header));
-		memcpy(buff + sizeof(header), str, h.size);
+		if ((MessageType)type == EXIT)
+		{
+			delete MySocket;
+		}
 
-		UnmapViewOfFile(buff);
-
-		CloseHandle(hFileMap);
-		CloseHandle(hFile);
-		ReleaseMutex(mutex);
+		return hConfirm;
 	}
 }

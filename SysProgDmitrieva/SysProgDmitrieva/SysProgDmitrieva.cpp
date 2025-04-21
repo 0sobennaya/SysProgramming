@@ -1,20 +1,39 @@
-﻿#include <iostream>
+﻿#ifndef _WIN32_WINNT
+#define	_WIN32_WINNT	0x0A00
+#endif						
+
+#include <boost/asio.hpp>
+
+#include <iostream>
 #include "Session.h"
 #include <conio.h>
 #include <Windows.h>
 #include <thread>
 #include <fstream>
 
+using boost::asio::ip::tcp;
 
-struct header
-{
-	int addr;
+struct header {
+	int type;
+	int num;
+	int adr;
 	int size;
 };
 
-extern "C" {
-	__declspec(dllimport) std::wstring mapreceive(header& h);
+enum MessageType {
+	INIT,
+	EXIT,
+	START,
+	SEND,
+	STOP,
+	CONFIRM
+};
+vector<Session*> sessions;
+int i = 0;
 
+extern "C" {
+	__declspec(dllimport) void SendServer(tcp::socket& s, int type, int num = 0, int adr = 0, const wchar_t* str = nullptr);
+	__declspec(dllimport) std::wstring ReceiveServer(tcp::socket& s, header& h);
 }
 
 void WriteFile(int sessionID, const std::wstring& message) {
@@ -56,140 +75,180 @@ void MyThread(Session* session)
 	return;
 }
 
-void start()
+//void start()
+//{
+//	std::wcin.imbue(std::locale("rus_rus.866"));
+//	std::wcout.imbue(std::locale("rus_rus.866"));
+//
+//	
+//	
+//	
+//
+//	while (i >=0)
+//	{
+//
+//		int n = WaitForMultipleObjects(4, hControlEvents, FALSE, INFINITE) - WAIT_OBJECT_0;
+//		switch (n)
+//		{
+//		case 0:
+//		{
+//			sessions.push_back(new Session(i++));
+//			std::thread t(MyThread, sessions.back());
+//			t.detach();
+//			SetEvent(hConfirmEvent);
+//			break;
+//		}
+//		case 1:
+//
+//			if (i == 0) {
+//				SetEvent(hCloseEvent);
+//				SetEvent(hConfirmEvent);
+//				break;
+//			}
+//			sessions.back()->addMessage(MT_CLOSE);
+//			sessions.pop_back();
+//			SetEvent(hConfirmEvent);
+//			i--;
+//			break;
+//
+//		case 2:
+//		{
+//			sessions.clear();
+//			i = -1;
+//			SetEvent(hConfirmEvent);
+//			return;
+//		}
+//		case 3:
+//		{
+//			header h;
+//			std::wstring message = mapreceive(h);
+//
+//			switch (h.addr)
+//			{
+//			case 0: {
+//				for (auto& session : sessions) {
+//					session->addMessage(MT_DATA, message);
+//				}
+//				break;
+//			}
+//			case 1: {
+//				SafeWrite("Main Thread ", message);
+//				break;
+//			}
+//			default: {
+//				sessions[h.addr - 2]->addMessage(MT_DATA, message);
+//				break;
+//			}
+//
+//			}
+//			SetEvent(hConfirmEvent);
+//		}
+//		}
+//	} 
+//	
+//	SetEvent(hConfirmEvent);
+//	
+//}
+
+void processClient(tcp::socket s)
 {
-	std::wcin.imbue(std::locale("rus_rus.866"));
-	std::wcout.imbue(std::locale("rus_rus.866"));
-
-	
-	vector<Session*> sessions;
-
-	HANDLE hStartEvent = CreateEvent(NULL, FALSE, FALSE, L"StartEvent");
-	HANDLE hStopEvent = CreateEvent(NULL, FALSE, FALSE, L"StopEvent");
-	HANDLE hConfirmEvent = CreateEvent(NULL, FALSE, FALSE, L"ConfirmEvent");
-	HANDLE hCloseEvent = CreateEvent(NULL, FALSE, FALSE, L"CloseEvent");
-	HANDLE hSendEvent = CreateEvent(NULL, FALSE, FALSE, L"SendEvent");
-	HANDLE hControlEvents[4] = { hStartEvent, hStopEvent , hCloseEvent, hSendEvent};
-	int i = 0;
-	
-
-	while (i >=0)
+	try
 	{
-
-		int n = WaitForMultipleObjects(4, hControlEvents, FALSE, INFINITE) - WAIT_OBJECT_0;
-		switch (n)
+		while (true)
 		{
-		case 0:
-		{
-			sessions.push_back(new Session(i++));
-			std::thread t(MyThread, sessions.back());
-			t.detach();
-			SetEvent(hConfirmEvent);
-			break;
-		}
-		case 1:
-
-			if (i == 0) {
-				SetEvent(hCloseEvent);
-				SetEvent(hConfirmEvent);
+			header h = { 0 };
+			std::wstring str = ReceiveServer(s, h);
+			switch (h.type)
+			{
+			case INIT:
+			{
 				break;
 			}
-			sessions.back()->addMessage(MT_CLOSE);
-			sessions.pop_back();
-			SetEvent(hConfirmEvent);
-			i--;
-			break;
-
-		case 2:
-		{
-			sessions.clear();
-			i = -1;
-			SetEvent(hConfirmEvent);
-			return;
-		}
-		case 3:
-		{
-			header h;
-			std::wstring message = mapreceive(h);
-
-			switch (h.addr)
+			case START:
 			{
-			case 0: {
-				for (auto& session : sessions) {
-					session->addMessage(MT_DATA, message);
+				for (int j = 0; j < h.num; j++) {
+					sessions.push_back(new Session(i++));
+					std::thread t(MyThread, sessions.back());
+					t.detach();
+				}
+				
+				break;
+			}
+			case STOP:
+
+				if (i > 0) {
+					
+					sessions.back()->addMessage(MT_CLOSE);
+					sessions.pop_back();
+				
+					i--;
+					
 				}
 				break;
-			}
-			case 1: {
-				SafeWrite("Main Thread ", message);
-				break;
-			}
-			default: {
-				sessions[h.addr - 2]->addMessage(MT_DATA, message);
-				break;
-			}
 
+			case EXIT:
+			{
+				sessions.clear();
+				SendServer(s, CONFIRM, i);
+				
+				
+				return;
 			}
-			SetEvent(hConfirmEvent);
+			case SEND:
+			{
+				
+				switch (h.adr)
+				{
+				case 0: {
+					for (auto& session : sessions) {
+						session->addMessage(MT_DATA, str);
+					}
+					break;
+				}
+				case 1: {
+					SafeWrite("Main Thread ", str);
+					break;
+				}
+				default: {
+					sessions[h.adr - 2]->addMessage(MT_DATA,str);
+					break;
+				}
+
+				}
+				
+			}
+			}
+			SendServer(s, CONFIRM, i);
 		}
-		}
-	} 
-	
-	SetEvent(hConfirmEvent);
-	
+	}
+	catch (std::exception& e)
+	{
+		std::wcerr << "Client exception: " << e.what() << endl;
+	}
 }
 
 
 
 int main()
 {
-	/*std::vector<Session*> sessions;
-	int i = 0;
+	std::wcin.imbue(std::locale("rus_rus.866"));
+	std::wcout.imbue(std::locale("rus_rus.866"));
+	try
+	{
+		int port = 12346;
+		boost::asio::io_context io;
+		tcp::acceptor a(io, tcp::endpoint(tcp::v4(), port));
 
-	HANDLE hStartEvent = CreateEvent(NULL, FALSE, FALSE, L"StartEvent");
-	HANDLE hStopEvent = CreateEvent(NULL, FALSE, FALSE, L"StopEvent");
-	HANDLE hConfirmEvent = CreateEvent(NULL, FALSE, FALSE, L"ConfirmEvent");
-	HANDLE hCloseEvent = CreateEvent(NULL, FALSE, FALSE, L"CloseEvent");
-	HANDLE hControlEvents[3] = { hStartEvent, hStopEvent, hCloseEvent };
-
-	while (i >= 0) {
-		int n = WaitForMultipleObjects(3, hControlEvents, FALSE, INFINITE) - WAIT_OBJECT_0;
-		switch (n)
+		while (true)
 		{
-		case 0:
-		{
-			sessions.push_back(new Session(i++));
-			std::thread t(MyThread, sessions.back());
-			t.detach();
-			SetEvent(hConfirmEvent);
-			break;
-		}
-		case 1:
-		{
-			if (i == 0) {
-				SetEvent(hCloseEvent);
-				break;
-			}
-			sessions.back()->addMessage(MT_CLOSE);
-			sessions.pop_back();
-			SetEvent(hConfirmEvent);
-			i--;
-			break;
-		}
-		case 2:
-		{
-			sessions.clear();
-			SetEvent(hConfirmEvent);
-			break;
-		}
-
+			std::thread(processClient, a.accept()).detach();
 		}
 	}
-	SetEvent(hConfirmEvent);
-*/
-
-	/*return 0;*/
-    start();
+	catch (std::exception& e)
+	{
+		std::wcerr << "Exception: " << e.what() << std::endl;
+	}
+    
 	return 0;
 }
 
