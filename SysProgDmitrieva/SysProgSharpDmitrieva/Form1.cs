@@ -27,17 +27,18 @@ namespace SysProgSharpDmitrieva
             [MarshalAs(UnmanagedType.I4)]
             public int num;
             [MarshalAs(UnmanagedType.I4)]
-            public int adr;
+            public int addr;
             [MarshalAs(UnmanagedType.I4)]
             public int size;
         };
 
         [DllImport("DllDmitrieva.dll", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
-        static extern Header SendClient(MessageType type, int num = 0, int adr = 0, string str = "");
+        static extern Header sendClient(MessageType type, int num = 0, int addr = 0, string str = "");
+
         public Form1()
         {
             InitializeComponent();
-            Header h = SendClient(MessageType.INIT);
+            Header h = sendClient(MessageType.INIT);
             if (h.type == MessageType.CONFIRM)
             {
                 listBox.Items.Add("Все потоки");
@@ -48,6 +49,7 @@ namespace SysProgSharpDmitrieva
                 }
             }
         }
+
         private void OnProcessExited(object sender, EventArgs e)
         {
             if (listBox.InvokeRequired)
@@ -83,7 +85,7 @@ namespace SysProgSharpDmitrieva
         private void StartButton_Click(object sender, EventArgs e)
         {
             int n = (int)Counter.Value;
-            Header h = SendClient(MessageType.START, n);
+            Header h = sendClient(MessageType.START, n);
             if (h.type == MessageType.CONFIRM)
             {
                 Update_List(h.num);
@@ -92,7 +94,7 @@ namespace SysProgSharpDmitrieva
 
         private void StopButton_Click(object sender, EventArgs e)
         {
-            Header h = SendClient(MessageType.STOP);
+            Header h = sendClient(MessageType.STOP);
             if (h.type == MessageType.CONFIRM)
             {
                 Update_List(h.num);
@@ -103,21 +105,25 @@ namespace SysProgSharpDmitrieva
         {
             try
             {
-                SendClient(MessageType.EXIT);
+                sendClient(MessageType.EXIT);
             }
             catch (Exception ex)
             {
                 return;
             }
+
+
         }
 
         private void SendButton_Click(object sender, EventArgs e)
         {
-            Header h = SendClient(MessageType.SEND, 0, listBox.SelectedIndex, textBox.Text);
+
+            Header h = sendClient(MessageType.SEND, 0, listBox.SelectedIndex, textBox.Text);
             if (h.type == MessageType.CONFIRM)
             {
                 textBox.Text = "";
             }
+
         }
 
     }
