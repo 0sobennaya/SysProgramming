@@ -28,38 +28,15 @@
         /// </summary>
         private void InitializeComponent()
         {
-            StartButton = new Button();
-            StopButton = new Button();
             SendButton = new Button();
-            Counter = new NumericUpDown();
-            listBox = new ListBox();
+            usersBox = new ListBox();
             textBox = new TextBox();
-            ((System.ComponentModel.ISupportInitialize)Counter).BeginInit();
+            messagesBox = new ListBox();
             SuspendLayout();
-            // 
-            // StartButton
-            // 
-            StartButton.Location = new Point(27, 46);
-            StartButton.Name = "StartButton";
-            StartButton.Size = new Size(94, 29);
-            StartButton.TabIndex = 0;
-            StartButton.Text = "Start";
-            StartButton.UseVisualStyleBackColor = true;
-            StartButton.Click += StartButton_Click;
-            // 
-            // StopButton
-            // 
-            StopButton.Location = new Point(27, 100);
-            StopButton.Name = "StopButton";
-            StopButton.Size = new Size(94, 29);
-            StopButton.TabIndex = 1;
-            StopButton.Text = "Stop";
-            StopButton.UseVisualStyleBackColor = true;
-            StopButton.Click += StopButton_Click;
             // 
             // SendButton
             // 
-            SendButton.Location = new Point(27, 153);
+            SendButton.Location = new Point(538, 10);
             SendButton.Name = "SendButton";
             SendButton.Size = new Size(94, 29);
             SendButton.TabIndex = 2;
@@ -67,55 +44,49 @@
             SendButton.UseVisualStyleBackColor = true;
             SendButton.Click += SendButton_Click;
             // 
-            // Counter
+            // usersBox
             // 
-            Counter.Location = new Point(27, 211);
-            Counter.Name = "Counter";
-            Counter.Size = new Size(94, 27);
-            Counter.TabIndex = 3;
-            Counter.Value = new decimal(new int[] { 1, 0, 0, 0 });
-            // 
-            // listBox
-            // 
-            listBox.FormattingEnabled = true;
-            listBox.Location = new Point(294, 46);
-            listBox.Name = "listBox";
-            listBox.Size = new Size(265, 164);
-            listBox.TabIndex = 4;
+            usersBox.FormattingEnabled = true;
+            usersBox.Location = new Point(12, 60);
+            usersBox.Name = "usersBox";
+            usersBox.Size = new Size(226, 324);
+            usersBox.TabIndex = 4;
             // 
             // textBox
             // 
-            textBox.Location = new Point(27, 273);
+            textBox.Location = new Point(12, 12);
             textBox.Name = "textBox";
-            textBox.Size = new Size(94, 27);
+            textBox.Size = new Size(520, 27);
             textBox.TabIndex = 5;
+            // 
+            // messagesBox
+            // 
+            messagesBox.FormattingEnabled = true;
+            messagesBox.Location = new Point(244, 61);
+            messagesBox.Name = "messagesBox";
+            messagesBox.Size = new Size(388, 324);
+            messagesBox.TabIndex = 6;
             // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(644, 404);
+            Controls.Add(messagesBox);
             Controls.Add(textBox);
-            Controls.Add(listBox);
-            Controls.Add(Counter);
+            Controls.Add(usersBox);
             Controls.Add(SendButton);
-            Controls.Add(StopButton);
-            Controls.Add(StartButton);
             Name = "Form1";
             Text = "Dmitrieva";
             FormClosed += Form1_FormClosed;
-            ((System.ComponentModel.ISupportInitialize)Counter).EndInit();
             ResumeLayout(false);
             PerformLayout();
         }
 
         #endregion
-
-        private Button StartButton;
-        private Button StopButton;
         private Button SendButton;
-        private NumericUpDown Counter;
-        private ListBox listBox;
+        private ListBox usersBox;
         private TextBox textBox;
+        private ListBox messagesBox;
     }
 }

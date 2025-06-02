@@ -1,146 +1,111 @@
-﻿#ifndef _WIN32_WINNT
-#define	_WIN32_WINNT	0x0A00
-#endif	
+﻿#include "Session.h"
+#include "SysProg.h"
 
-#include <boost/asio.hpp>
-#include <iostream>
-#include <conio.h>
-#include <Windows.h>
-#include <thread>
-#include <fstream>
+#include <map>
 
-#include "Session.h"
+int maxID = MR_USER;
+std::map<int, std::shared_ptr<Session>> sessions;
 
-using boost::asio::ip::tcp;
-
-struct header {
-	int type;
-	int num;
-	int addr;
-	int size;
-};
-
-enum MessageType
+void cleanupInactiveSessions()
 {
-	INIT,
-	EXIT,
-	START,
-	SEND,
-	STOP,
-	CONFIRM
-};
-
-std::vector<Session*> sessions;
-int i = 0;
-
-extern "C" {
-	__declspec(dllimport) void sendServer(tcp::socket& s, int type, int num = 0, int addr = 0, const wchar_t* str = nullptr);
-	__declspec(dllimport) std::wstring receiveServer(tcp::socket& s, header& h);
-}
-
-void WriteFile(int sessionID, const std::wstring& message) {
-	std::wofstream out;
-	out.imbue(std::locale("Russian_Russia"));
-	out.open(std::to_string(sessionID) + ".txt", std::ios::app);
-	if (out.is_open()) {
-		out << message << std::endl;
-	}
-	out.close();
-}
-
-void MyThread(Session* session)
-{
-	SafeWrite("session", session->sessionID, "created");
+	const auto timeout = chrono::seconds(15);
 	while (true)
 	{
-		Message m;
-		if (session->getMessage(m))
+		this_thread::sleep_for(chrono::seconds(2));
+
+		auto now = std::chrono::steady_clock::now();
+		vector<int> expired;
+
+		for (auto& [id, session] : sessions)
 		{
-			switch (m.header.messageType)
+			if (now - session->lastAccess > timeout)
+				expired.push_back(id);
+		}
+
+		for (int id : expired)
+		{
+			sessions.erase(id);
+			SafeWrite(L"Клиент#", id, L"отключён");
+
+			for (auto& [sess_id, sess] : sessions)
 			{
-			case MT_CLOSE:
-			{
-				SafeWrite("session", session->sessionID, "closed");
-				delete session;
-				return;
-			}
-			case MT_DATA:
-			{
-				WriteFile(session->sessionID, m.data);
-			}
+				auto m = Message(sess_id, id, MT_EXIT);
+				sess->add(m);
 			}
 		}
 	}
-	return;
 }
+
 
 void processClient(tcp::socket s)
 {
 	try
 	{
-		while (true)
+		Message m;
+		int code = m.receive(s);
+		SafeWrite(m.header.to, ": ", m.header.from, ": ", m.header.type);
+		switch (code)
 		{
-			header h = { 0 };
-			std::wstring str = receiveServer(s, h);
-			switch (h.type)
-			{
-			case INIT: {
+		case MT_INIT:
+		{
+			auto session = std::make_shared<Session>(++maxID, m.data);
+			sessions[session->id] = session;
+			Message::send(s, session->id, MR_BROKER, MT_INIT);
 
-				break;
-			}
-			case START:
+			for (auto& [id, ses] : sessions)
 			{
-				for (int m = 0; m < h.num; ++m) {
-					sessions.push_back(new Session(i++));
-					std::thread t(MyThread, sessions.back());
-					t.detach();
-				}
-				break;
-			}
-			case STOP:
-			{
-				if (i > 0) {
-
-					sessions.back()->addMessage(MT_CLOSE);
-					sessions.pop_back();
-					i--;
-				}
-				break;
-			}
-			case EXIT:
-			{
-				sessions.clear();
-				sendServer(s, CONFIRM, i);
-				return;
-			}
-			case SEND:
-			{
-				switch (h.addr)
+				if (id != session->id)
 				{
-				case 0: {
-					for (auto& session : sessions) {
-						session->addMessage(MT_DATA, str);
-					}
-					break;
-				}
-				case 1: {
-					SafeWrite("Main Thread ", str);
-					break;
-				}
-				default: {
-					sessions[h.addr - 2]->addMessage(MT_DATA, str);
-					break;
-				}
-
+					Message mes = Message(id, session->id, MT_INIT);
+					ses->add(mes);
+					mes = Message(session->id, id, MT_INIT);
+					sessions[session->id]->add(mes);
 				}
 			}
-			}
-			sendServer(s, CONFIRM, i);
+			break;
 		}
+		
+		case MT_GETDATA:
+		{
+			auto iSession = sessions.find(m.header.from);
+			if (iSession != sessions.end())
+			{
+				iSession->second->send(s);
+			}
+			break;
+		}
+		default:
+		{
+			auto iSessionFrom = sessions.find(m.header.from);
+			if (iSessionFrom != sessions.end())
+			{
+				auto iSessionTo = sessions.find(m.header.to);
+				if (iSessionTo != sessions.end())
+				{
+					iSessionTo->second->add(m);
+				}
+				else if (m.header.to == MR_ALL)
+				{
+					for (auto& [id, session] : sessions)
+					{
+						if (id != m.header.from)
+							session->add(m);
+					}
+				}
+				else if (m.header.to == MR_BROKER)
+				{
+					SafeWrite("Главный поток, сообщение \"", m.data, "\"");
+				}
+				Message::send(s, m.header.from, MR_BROKER, MT_CONFIRM);
+			}
+			break;
+		}
+		}
+
 	}
 	catch (std::exception& e)
 	{
-		std::wcerr << "Client exception: " << e.what() << std::endl;
+		std::wcerr << "Exception: " << e.what() << endl;
 	}
 }
 
@@ -157,6 +122,7 @@ int main()
 		boost::asio::io_context io;
 		tcp::acceptor a(io, tcp::endpoint(tcp::v4(), port));
 
+		std::thread(cleanupInactiveSessions).detach();
 		while (true)
 		{
 			std::thread(processClient, a.accept()).detach();

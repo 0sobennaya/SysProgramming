@@ -1,81 +1,47 @@
 #pragma once
-#include "SysProg.h"
-enum MessageTypes
-{
-	MT_CLOSE,
-	MT_DATA
-};
+#include "message.h"
 
-struct MessageHeader
-{
-	int messageType;
-	int size;
-};
-
-struct Message
-{
-	MessageHeader header = { 0 };
-	wstring data;
-	Message() = default;
-	Message(MessageTypes messageType, const wstring& data = L"")
-		:data(data)
-	{
-		header = { messageType,  int(data.length()) };
-	}
-};
+#include <queue>
+#include <mutex>
+#include <chrono>
 
 class Session
 {
-	queue<Message> messages;
-	CRITICAL_SECTION cs;
-	HANDLE hEvent;
 public:
-	int sessionID;
+	int id;
+	std::wstring name;
+	std::queue<Message> messages;
+	chrono::time_point<std::chrono::steady_clock> lastAccess;
 
-	Session(int sessionID)
-		:sessionID(sessionID)
+	std::mutex mx;
+	Session(int id, std::wstring name)
+		:id(id), name(name), lastAccess(std::chrono::steady_clock::now())
 	{
-		InitializeCriticalSection(&cs);
-		hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 	}
 
-	~Session()
-	{
-		DeleteCriticalSection(&cs);
-		CloseHandle(hEvent);
+	void touch() {
+		lastAccess = std::chrono::steady_clock::now();
 	}
 
-	void addMessage(Message& m)
+	void add(Message& m)
 	{
-		EnterCriticalSection(&cs);
+		lock_guard<std::mutex> lg(mx);
 		messages.push(m);
-		SetEvent(hEvent);
-		LeaveCriticalSection(&cs);
 	}
 
-	bool getMessage(Message& m)
+	void send(tcp::socket& s)
 	{
-		bool res = false;
-		WaitForSingleObject(hEvent, INFINITE);
-		EnterCriticalSection(&cs);
-		if (!messages.empty())
-		{
-			res = true;
-			m = messages.front();
-			messages.pop();
-		}
+		touch();
+		lock_guard<mutex> lg(mx);
 		if (messages.empty())
 		{
-			ResetEvent(hEvent);
+			Message::send(s, id, MR_BROKER, MT_NODATA);
 		}
-		LeaveCriticalSection(&cs);
-		return res;
-	}
-
-	void addMessage(MessageTypes messageType, const wstring& data = L"")
-	{
-		Message m(messageType, data);
-		addMessage(m);
+		else
+		{
+			messages.front().send(s);
+			messages.pop();
+		}
 	}
 };
 

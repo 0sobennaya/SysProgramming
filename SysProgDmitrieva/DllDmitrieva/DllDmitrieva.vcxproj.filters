@@ -24,12 +24,24 @@
     <ClInclude Include="asio.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
+    <ClInclude Include="mydll.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="message.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
     <ClCompile Include="pch.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
+    <ClCompile Include="mydll.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
+    <ClCompile Include="message.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
   </ItemGroup>

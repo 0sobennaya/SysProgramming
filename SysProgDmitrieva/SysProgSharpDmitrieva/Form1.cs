@@ -9,121 +9,167 @@ namespace SysProgSharpDmitrieva
 {
     public partial class Form1 : Form
     {
-        enum MessageType
+        HashSet<int> OtherIDs = [];
+        private volatile bool _running = true;
+        public enum MessageTypes : int
         {
-            INIT,
-            EXIT,
-            START,
-            SEND,
-            STOP,
-            CONFIRM,
+            MT_INIT,
+            MT_EXIT,
+            MT_GETDATA,
+            MT_DATA,
+            MT_NODATA,
+            MT_CONFIRM,
+            MT_NEWSESSION,
+        };
+
+        public enum MessageRecipients : int
+        {
+            MR_BROKER = 10,
+            MR_ALL = 50,
+            MR_USER = 100
         };
 
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-        struct Header
+        struct MessageHeader
         {
             [MarshalAs(UnmanagedType.I4)]
-            public MessageType type;
+            public MessageRecipients to;
             [MarshalAs(UnmanagedType.I4)]
-            public int num;
+            public MessageRecipients from;
             [MarshalAs(UnmanagedType.I4)]
-            public int addr;
+            public MessageTypes type;
             [MarshalAs(UnmanagedType.I4)]
             public int size;
         };
 
-        [DllImport("DllDmitrieva.dll", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
-        static extern Header sendClient(MessageType type, int num = 0, int addr = 0, string str = "");
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        struct MessageTransfer
+        {
+            public MessageHeader header;
+            public IntPtr data;
+            public int clientID;
+        };
 
+        [DllImport("DLLDmitrieva.dll", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+        static extern MessageTransfer SendMsg(int to, MessageTypes type, string data = "");
+
+        [DllImport("DLLDmitrieva.dll", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+        static extern void FreeMessageTransfer(MessageTransfer msg);
+
+        void ProcessMessages()
+        {
+            while (_running)
+            {
+                var m = SendMsg((int)MessageRecipients.MR_BROKER, MessageTypes.MT_GETDATA);
+                switch (m.header.type)
+                {
+                    case MessageTypes.MT_DATA:
+                        messagesBox.Invoke(new Action(() => {
+                            messagesBox.Items.Add($"[{m.header.from}>] {Marshal.PtrToStringUni(m.data)}");
+                        }));
+                        FreeMessageTransfer(m);
+                        break;
+                    case MessageTypes.MT_INIT:
+                        OtherIDs.Add((int)m.header.from);
+                        RefreshusersBox();
+                        break;
+                    case MessageTypes.MT_EXIT:
+                        if (m.header.from == MessageRecipients.MR_BROKER)
+                            return;
+                        else
+                        {
+                            OtherIDs.Remove((int)m.header.from);
+                            RefreshusersBox();
+                        }
+                        break;
+                    default:
+                        Thread.Sleep(100);
+                        break;
+                }
+            }
+        }
+
+        private void RefreshusersBox()
+        {
+            usersBox.DataSource = null;
+            usersBox.DataSource = OtherIDs.Select(id => new DisplayUser { Id = id }).ToList();
+        }
         public Form1()
         {
             InitializeComponent();
-            Header h = sendClient(MessageType.INIT);
-            if (h.type == MessageType.CONFIRM)
+
+            var m = SendMsg((int)MessageRecipients.MR_BROKER, (int)MessageTypes.MT_INIT);
+
+            if (m.header.type == MessageTypes.MT_INIT)
             {
-                listBox.Items.Add("Все потоки");
-                listBox.Items.Add("Главный поток");
-                for (int i = 0; i < h.num; ++i)
-                {
-                    listBox.Items.Add($"Thread {i}");
-                }
+                OtherIDs.Add(10);
+                OtherIDs.Add(50);
+                RefreshusersBox();
+                messagesBox.Items.Add($"Ваш clientID: {m.clientID}");
             }
+
+            Thread t = new Thread(ProcessMessages);
+            t.Start();
         }
 
         private void OnProcessExited(object sender, EventArgs e)
         {
-            if (listBox.InvokeRequired)
+            if (usersBox.InvokeRequired)
             {
-                listBox.Invoke(new Action(() => listBox.Items.Clear()));
+                usersBox.Invoke(new Action(() => usersBox.Items.Clear()));
             }
             else
             {
-                listBox.Items.Clear();
+                usersBox.Items.Clear();
             }
 
         }
 
-        private void Update_List(int m)
-        {
-            int n = listBox.Items.Count - 2;
-            if (m >= n)
-            {
-                for (int i = n; i < m; ++i)
-                {
-                    listBox.Items.Add($"Thread {i}");
-                }
-            }
-            else
-            {
-                for (int i = m; i < n; ++i)
-                {
-                    listBox.Items.RemoveAt(listBox.Items.Count - 1);
-                }
-            }
-        }
 
-        private void StartButton_Click(object sender, EventArgs e)
-        {
-            int n = (int)Counter.Value;
-            Header h = sendClient(MessageType.START, n);
-            if (h.type == MessageType.CONFIRM)
-            {
-                Update_List(h.num);
-            }
-        }
 
-        private void StopButton_Click(object sender, EventArgs e)
-        {
-            Header h = sendClient(MessageType.STOP);
-            if (h.type == MessageType.CONFIRM)
-            {
-                Update_List(h.num);
-            }
-        }
+
 
         private void Form1_FormClosed(object sender, FormClosedEventArgs e)
         {
-            try
-            {
-                sendClient(MessageType.EXIT);
-            }
-            catch (Exception ex)
-            {
-                return;
-            }
-
-
+            _running = false;
         }
 
         private void SendButton_Click(object sender, EventArgs e)
         {
+            string message = textBox.Text;
+            int to = (usersBox.SelectedItem as DisplayUser).Id;
 
-            Header h = sendClient(MessageType.SEND, 0, listBox.SelectedIndex, textBox.Text);
-            if (h.type == MessageType.CONFIRM)
+            string to_name = to == 50 ? "Всем" : (to == 10 ? "Серверу" : to.ToString());
+
+            messagesBox.Items.Add($"[{to_name}<] {message}");
+
+            var m = SendMsg(to, MessageTypes.MT_DATA, message);
+
+            if (m.header.type == MessageTypes.MT_CONFIRM)
             {
-                textBox.Text = "";
+                textBox.Text = string.Empty;
+            }
+        }
+        public class DisplayUser
+        {
+            public int Id { get; set; }
+            public string DisplayName
+            {
+                get
+                {
+                    return Id switch
+                    {
+                        (int)MessageRecipients.MR_BROKER => "Главный поток",
+                        (int)MessageRecipients.MR_ALL => "Все потоки",
+                        _ => $"Пользователь {Id}"
+                    };
+                }
             }
 
+            public override string ToString()
+            {
+                return DisplayName;
+            }
         }
 
     }
