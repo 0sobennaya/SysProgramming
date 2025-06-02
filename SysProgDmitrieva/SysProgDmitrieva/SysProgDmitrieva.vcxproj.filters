@@ -18,12 +18,21 @@
     <ClCompile Include="SysProgDmitrieva.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
+    <ClCompile Include="Message.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Session.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="SysProg.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="Message.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="asio.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
   </ItemGroup>

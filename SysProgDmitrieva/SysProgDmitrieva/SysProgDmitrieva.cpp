@@ -25,7 +25,7 @@ void cleanupInactiveSessions()
 		for (int id : expired)
 		{
 			sessions.erase(id);
-			SafeWrite(L"Клиент#", id, L"отключён");
+			SafeWrite(L"Клиент #", id, L" отключён");
 
 			for (auto& [sess_id, sess] : sessions)
 			{
@@ -41,67 +41,69 @@ void processClient(tcp::socket s)
 {
 	try
 	{
-		Message m;
-		int code = m.receive(s);
-		SafeWrite(m.header.to, ": ", m.header.from, ": ", m.header.type);
-		switch (code)
-		{
-		case MT_INIT:
-		{
-			auto session = std::make_shared<Session>(++maxID, m.data);
-			sessions[session->id] = session;
-			Message::send(s, session->id, MR_BROKER, MT_INIT);
+		while (true) {
+			Message m;
+			int code = m.receive(s);
+			SafeWrite(m.header.to, ": ", m.header.from, ": ", m.header.type);
+			switch (code)
+			{
+			case MT_INIT:
+			{
+				auto session = std::make_shared<Session>(++maxID, m.data);
+				sessions[session->id] = session;
+				Message::send(s, session->id, MR_BROKER, MT_INIT);
 
-			for (auto& [id, ses] : sessions)
-			{
-				if (id != session->id)
+				for (auto& [id, ses] : sessions)
 				{
-					Message mes = Message(id, session->id, MT_INIT);
-					ses->add(mes);
-					mes = Message(session->id, id, MT_INIT);
-					sessions[session->id]->add(mes);
-				}
-			}
-			break;
-		}
-		
-		case MT_GETDATA:
-		{
-			auto iSession = sessions.find(m.header.from);
-			if (iSession != sessions.end())
-			{
-				iSession->second->send(s);
-			}
-			break;
-		}
-		default:
-		{
-			auto iSessionFrom = sessions.find(m.header.from);
-			if (iSessionFrom != sessions.end())
-			{
-				auto iSessionTo = sessions.find(m.header.to);
-				if (iSessionTo != sessions.end())
-				{
-					iSessionTo->second->add(m);
-				}
-				else if (m.header.to == MR_ALL)
-				{
-					for (auto& [id, session] : sessions)
+					if (id != session->id)
 					{
-						if (id != m.header.from)
-							session->add(m);
+						Message mes = Message(id, session->id, MT_INIT);
+						ses->add(mes);
+						mes = Message(session->id, id, MT_INIT);
+						sessions[session->id]->add(mes);
 					}
 				}
-				else if (m.header.to == MR_BROKER)
-				{
-					SafeWrite("Главный поток, сообщение \"", m.data, "\"");
-				}
-				Message::send(s, m.header.from, MR_BROKER, MT_CONFIRM);
+				break;
 			}
-			break;
-		}
-		}
+			case MT_GETDATA:
+			{
+				auto iSession = sessions.find(m.header.from);
+				if (iSession != sessions.end())
+				{
+					iSession->second->send(s);
+				}
+				break;
+			}
+			default:
+			{
+				auto iSessionFrom = sessions.find(m.header.from);
+				if (iSessionFrom != sessions.end())
+				{
+					auto iSessionTo = sessions.find(m.header.to);
+					if (iSessionTo != sessions.end())
+					{
+						iSessionTo->second->add(m);
+					}
+					else if (m.header.to == MR_ALL)
+					{
+						for (auto& [id, session] : sessions)
+						{
+							if (id != m.header.from)
+								session->add(m);
+						}
+					}
+					else if (m.header.to == MR_BROKER)
+					{
+						SafeWrite("Главный поток, сообщение \"", m.data, "\"");
+					}
+					Message::send(s, m.header.from, MR_BROKER, MT_CONFIRM);
+				}
+				break;
+			}
+			}
 
+
+		}
 	}
 	catch (std::exception& e)
 	{
@@ -113,8 +115,9 @@ void processClient(tcp::socket s)
 
 int main()
 {
-	std::wcin.imbue(std::locale("rus_rus.866"));
-	std::wcout.imbue(std::locale("rus_rus.866"));
+	std::locale::global(std::locale(".1251"));
+	std::wcin.imbue(std::locale());
+	std::wcout.imbue(std::locale());
 
 	try
 	{
